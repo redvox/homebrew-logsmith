@@ -21,4 +21,4 @@ jobs:
     - name: commit new release
       run: |
         git config --global user.email "jens@copperlion.de" && git config --global user.name "Jens Gohl" && \
-        git add ./Casks/* && git commit -am "new logsmith release" && git push || echo "Nothing to import."
+        git add ./Casks/* && git commit -am "update cask" && git push || echo "Nothing to import."
