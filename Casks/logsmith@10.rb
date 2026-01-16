@@ -1,4 +1,4 @@
-cask "logsmith" do
+cask "logsmith@10" do
   version "10.0.0"
   homepage "https://github.com/otto-de/logsmith"
   sha256 "145aab3940b89bbb5664451120ab92047826f5a3503bcbba67b244ca809d6f63"
