@@ -1,7 +1,7 @@
 cask "logsmith-beta" do
-  version "9.1.0-rc.3"
+  version "10.0.0"
   homepage "https://github.com/otto-de/logsmith"
-  sha256 "7f495ee880786626a67ca48729b76a6ff9ecf73fa9c29228d5885bda80499b2d"
+  sha256 "145aab3940b89bbb5664451120ab92047826f5a3503bcbba67b244ca809d6f63"
   url "https://github.com/otto-de/logsmith/releases/download/#{version}/logsmith_darwin_#{version}.zip"
   app "dist/logsmith.app"
 end

@@ -110,9 +110,14 @@ echo -e "${cg}    Latest stable version: ${latest_version}${cc}"
 echo -e "${cg}[+] Update Latest beta${cc}"
 prerelease_version=$(jq_name "$prerelease_info")
 prerelease_url=$(jq_url "$prerelease_info")
-prerelease_checksum=$(get_checksum "beta" "${prerelease_url}")
-write_cask "logsmith-beta" "${prerelease_version}" "${prerelease_checksum}"
-echo -e "${cg}    Latest beta version: ${prerelease_version}${cc}"
+if [ "${latest_version}" != "${prerelease_version}" ] && [ "$(printf '%s\n' "${latest_version}" "${prerelease_version}" | sort -V | tail -n1)" = "${latest_version}" ]; then
+  write_cask "logsmith-beta" "${latest_version}" "${latest_checksum}"
+  echo -e "${cg}    Latest beta version: ${latest_version} (stable is higher)${cc}"
+else
+  prerelease_checksum=$(get_checksum "beta" "${prerelease_url}")
+  write_cask "logsmith-beta" "${prerelease_version}" "${prerelease_checksum}"
+  echo -e "${cg}    Latest beta version: ${prerelease_version}${cc}"
+fi
 
 
 echo -e "${cg}[+] Update all major releases${cc}"
