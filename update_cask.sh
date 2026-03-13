@@ -24,6 +24,25 @@ function get_checksum(){
   echo "${checksum}"
 }
 
+function release_has_app_bundle() {
+  local name=$1
+  local url=$2
+
+  local archive="./${name}.zip"
+
+  echo -e "${cy}    Validate app bundle in ${url}${cc}" >&2
+  rm -f "${archive}"
+  curl -L -o "${archive}" "${url}" >/dev/null
+
+  if unzip -Z1 "${archive}" | grep -q '^dist/logsmith\.app/$'; then
+    rm -f "${archive}"
+    return 0
+  fi
+
+  rm -f "${archive}"
+  return 1
+}
+
 function write_cask(){
   local name=$1
   local version=$2
@@ -46,6 +65,34 @@ function jq_name(){
 function jq_url(){
   local data=$1
   echo "$data" | jq -r '.assets | .[] | .browser_download_url' | grep darwin
+}
+
+function select_latest_release_with_app_bundle() {
+  local prerelease=$1
+  local selected=""
+
+  while IFS= read -r release; do
+    [ -z "${release}" ] && continue
+
+    local version
+    local url
+    version=$(jq_name "${release}")
+    url=$(jq_url "${release}")
+
+    if release_has_app_bundle "${version}" "${url}"; then
+      selected="${release}"
+      break
+    fi
+
+    echo -e "${cy}    Skip ${version} (missing dist/logsmith.app)${cc}" >&2
+  done < <(echo "$releases_info" | jq -c --argjson prerelease "${prerelease}" '.[] | select((.name | contains("-yanked") | not) and (.prerelease == $prerelease))')
+
+  if [ -z "${selected}" ]; then
+    echo ""
+    return 1
+  fi
+
+  echo "${selected}"
 }
 
 if [ -z "$GITHUB_TOKEN" ]; then
@@ -75,9 +122,14 @@ if ! echo "$releases_info" | jq -e . >/dev/null; then
 fi
 
 echo -e "${cg}[+] Extract releases${cc}"
-# Filter out releases where .name contains "-yanked" or "prerelease" is true, get the latest one
-release_info=$(echo "$releases_info" | jq -c '[.[] | select((.name | contains("-yanked") | not) and (.prerelease | not))] | first')
-prerelease_info=$(echo "$releases_info" | jq -c '[.[] | select((.name | contains("-yanked") | not) and (.prerelease))] | first')
+release_info=$(select_latest_release_with_app_bundle false)
+prerelease_info=$(select_latest_release_with_app_bundle true || true)
+
+if [ -z "$release_info" ]; then
+  echo -e "${cr}[!] No stable release with dist/logsmith.app found${cc}" >&2
+  exit 1
+fi
+
 major_releases=$(python3 - <<'PY'
 import json
 
@@ -108,15 +160,20 @@ write_cask "logsmith" "${latest_version}" "${latest_checksum}"
 echo -e "${cg}    Latest stable version: ${latest_version}${cc}"
 
 echo -e "${cg}[+] Update Latest beta${cc}"
-prerelease_version=$(jq_name "$prerelease_info")
-prerelease_url=$(jq_url "$prerelease_info")
-if [ "${latest_version}" != "${prerelease_version}" ] && [ "$(printf '%s\n' "${latest_version}" "${prerelease_version}" | sort -V | tail -n1)" = "${latest_version}" ]; then
+if [ -z "${prerelease_info}" ]; then
   write_cask "logsmith-beta" "${latest_version}" "${latest_checksum}"
-  echo -e "${cg}    Latest beta version: ${latest_version} (stable is higher)${cc}"
+  echo -e "${cy}    Latest beta version: ${latest_version} (no prerelease with app bundle found)${cc}"
 else
-  prerelease_checksum=$(get_checksum "beta" "${prerelease_url}")
-  write_cask "logsmith-beta" "${prerelease_version}" "${prerelease_checksum}"
-  echo -e "${cg}    Latest beta version: ${prerelease_version}${cc}"
+  prerelease_version=$(jq_name "$prerelease_info")
+  prerelease_url=$(jq_url "$prerelease_info")
+  if [ "${latest_version}" != "${prerelease_version}" ] && [ "$(printf '%s\n' "${latest_version}" "${prerelease_version}" | sort -V | tail -n1)" = "${latest_version}" ]; then
+    write_cask "logsmith-beta" "${latest_version}" "${latest_checksum}"
+    echo -e "${cg}    Latest beta version: ${latest_version} (stable is higher)${cc}"
+  else
+    prerelease_checksum=$(get_checksum "beta" "${prerelease_url}")
+    write_cask "logsmith-beta" "${prerelease_version}" "${prerelease_checksum}"
+    echo -e "${cg}    Latest beta version: ${prerelease_version}${cc}"
+  fi
 fi
 
 
