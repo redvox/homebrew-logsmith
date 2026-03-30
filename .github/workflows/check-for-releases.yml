@@ -12,12 +12,14 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v6
+
     - name: check for new releases
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
         ./update_cask.sh
+
     - name: commit new release
       run: |
         git config --global user.email "jens@copperlion.de" && git config --global user.name "Jens Gohl" && \
